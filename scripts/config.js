@@ -3,13 +3,29 @@
 // 不含任何 Cookie 值，可安全提交到公开仓库
 // ============================================
 
+// ── Prompt 参数（由用户输入传入，通过 parsePromptArgs 解析）──
+
+/**
+ * Cookie 字符串（必传，无默认值）
+ * 格式：sessionid=xxx; passport_csrf_token=xxx; odin_tt=xxx; uid_tt=xxx;
+ *       sid_tt=xxx; sid_guard=xxx; ttwid=xxx; s_v_web_id=xxx
+ */
+const COOKIE = null;
+
+/**
+ * 目标好友名称列表（可选，默认值如下）
+ * Prompt 参数名：好友名称
+ * 格式：名称1、名称2、名称3（中文顿号或逗号分隔）
+ */
+const DEFAULT_FRIEND_NAMES = ['瑞士', '江川', '老张', '赵坤'];
+
+/**
+ * 续火消息内容（可选，默认值如下）
+ * Prompt 参数名：发送内容
+ */
+const DEFAULT_MESSAGE_TEXT = '🔥';
+
 // ── 业务常量 ──────────────────────────────────
-
-/** 目标好友名称列表（按遍历顺序） */
-const FRIEND_NAMES = ['瑞士', '江川', '老张', '赵坤'];
-
-/** 续火消息内容 */
-const MESSAGE_TEXT = '🔥';
 
 /** 抖音网页版域名 */
 const DOUYIN_URL = 'https://www.douyin.com';
@@ -60,7 +76,7 @@ const BROWSER_ARGS = [
 ];
 
 const USER_AGENT =
-  'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/150.0.0.0 Safari/537.36';
+  'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/127.0.0.0 Safari/537.36';
 
 // ── 时序常量（毫秒）────────────────────────────
 
@@ -94,10 +110,72 @@ const POPUP_MAX_RETRIES = 3;
 const PAGE_TITLE_CHECK = '抖音';
 const CAPTCHA_KEYWORDS = ['请完成下列验证', '滑块验证', '验证码'];
 
+// ── Prompt 参数解析 ───────────────────────────
+
+/**
+ * 从用户 prompt 文本中解析参数。
+ *
+ * 输入格式（每行一个参数）：
+ *   Cookie：sessionid=xxx; passport_csrf_token=xxx; ...
+ *   好友名称：瑞士、江川、老张、赵坤
+ *   发送内容：🔥
+ *
+ * @param {string} promptText - 用户输入的完整 prompt 文本
+ * @returns {{ cookie: string|null, friendNames: string[], messageText: string }}
+ *   - cookie: 必传，未提供则返回 null
+ *   - friendNames: 可选，未提供使用 DEFAULT_FRIEND_NAMES
+ *   - messageText: 可选，未提供使用 DEFAULT_MESSAGE_TEXT
+ */
+function parsePromptArgs(promptText) {
+  const result = {
+    cookie: null,
+    friendNames: [...DEFAULT_FRIEND_NAMES],
+    messageText: DEFAULT_MESSAGE_TEXT,
+  };
+
+  if (!promptText) return result;
+
+  // 按行拆分
+  const lines = promptText.split(/[\r\n]+/);
+
+  for (const line of lines) {
+    const trimmed = line.trim();
+    if (!trimmed) continue;
+
+    // 匹配「参数名：值」格式（支持中英文冒号）
+    const match = trimmed.match(/^(Cookie|好友名称|发送内容)[：:]\s*(.+)$/);
+    if (!match) continue;
+
+    const [, key, value] = match;
+    const val = value.trim();
+
+    switch (key) {
+      case 'Cookie':
+        if (val) result.cookie = val;
+        break;
+      case '好友名称':
+        if (val) {
+          // 支持中文顿号、逗号、空格分隔
+          result.friendNames = val
+            .split(/[、,，\s]+/)
+            .map((s) => s.trim())
+            .filter(Boolean);
+        }
+        break;
+      case '发送内容':
+        if (val) result.messageText = val;
+        break;
+    }
+  }
+
+  return result;
+}
+
 // ============================================
 module.exports = {
-  FRIEND_NAMES,
-  MESSAGE_TEXT,
+  COOKIE,
+  DEFAULT_FRIEND_NAMES,
+  DEFAULT_MESSAGE_TEXT,
   DOUYIN_URL,
   DOUYIN_JINGXUAN_URL,
   COOKIE_DOMAIN,
@@ -135,4 +213,5 @@ module.exports = {
   POPUP_MAX_RETRIES,
   PAGE_TITLE_CHECK,
   CAPTCHA_KEYWORDS,
+  parsePromptArgs,
 };
