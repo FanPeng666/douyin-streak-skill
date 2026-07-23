@@ -2,25 +2,12 @@
 name: douyin-streak
 description: 抖音好友火花自动续期，通过 Prompt 参数传入 Cookie / 好友名称 / 发送内容，每天向指定好友发送消息维持火花
 version: 2.1.0
-context: fork
 triggers:
   - 续火花
   - 抖音续火
   - 自动续火
   - 抖音火花
   - douyin streak
-hooks:
-  PostToolUse:
-    - matcher: "Write|Edit"
-      hooks:
-        - type: prompt
-          prompt: >
-            检查本次 Write/Edit 是否涉及项目代码、脚本、配置或文档的修改。
-            如果是，必须提醒主 Agent 在任务结束前：
-            1. 在 docs/changes/YYYY-MM-DD-HHmm.md 写入详细变更记录
-            2. 在 CHANGELOG.md 顶部追加版本概要
-            时间格式用 YYYY-MM-DD-HHmm。
-            如果仅是运行脚本（无代码修改），不需要提醒。
 ---
 
 ## 概述
@@ -33,7 +20,6 @@ hooks:
 
 - Node.js 22 + Playwright >= 1.40 + Chromium
 - 抖音精简 8 字段 Cookie（通过 Prompt 参数传入）
-- 项目级配置：需在 `.workbuddy/settings.json` 中开启 `allowUntrustedFrontmatterHooks: true`（克隆项目后手动创建）
 
 ## 执行流程
 
