@@ -5,7 +5,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "C:\\Users\\FireLeopardV\\.workbuddy\\binaries\\python\\versions\\3.13.12\\python.exe ${CODEBUDDY_SKILL_DIR}\\scripts\\check_changelog.py",
+            "command": "python ${CODEBUDDY_SKILL_DIR}\\scripts\\check_changelog.py",
             "timeout": 10000
           }
         ]
