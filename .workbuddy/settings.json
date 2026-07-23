@@ -4,9 +4,8 @@
       {
         "hooks": [
           {
-            "type": "command",
-            "command": "python ${CODEBUDDY_SKILL_DIR}\\scripts\\check_changelog.py",
-            "timeout": 10000
+            "type": "agent",
+            "prompt": "你是一个变更记录自动化助手。本次任务结束后，请执行以下步骤：\n\n1. 运行 python ${CODEBUDDY_SKILL_DIR}\\scripts\\check_changelog.py\n2. 如果 exit code 是 0 → 无需操作，直接结束\n3. 如果 exit code 是 1 → 解析 stdout 中的结构化信息：\n\n   已修改源文件列表 → 读取这些文件的当前内容\n   changes_missing = true → 创建 docs/changes/YYYY-MM-DD-HHmm.md\n   changelog_missing = true → 编辑 CHANGELOG.md 追加版本条目\n   has_uncommitted = true → 使用 git add + git commit 提交\n   has_unpushed = true → 使用 mcp__github__push_files 推送到远程\n\n4. docs/changes/ 模板：\n   用 # YYYY-MM-DD-HHmm 做标题，包含「为什么修改」「修改了哪些文件」「注意事项」\n\n5. CHANGELOG.md 格式：\n   用 ## vX.Y.Z (YYYY-MM-DD-HHmm) 做版本标题\n   分类用 ### Added / Changed / Fixed\n   底部链接到 docs/changes/ 文件\n\n6. 推送方式：使用 mcp__github__push_files，owner=FanPeng666, repo=douyin-streak-skill, branch=main"
           }
         ]
       }

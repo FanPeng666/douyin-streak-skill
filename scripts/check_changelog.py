@@ -1,22 +1,35 @@
 #!/usr/bin/env python3
 """
 Stop Hook 检查脚本
-在每次任务结束时自动检查：
-1. 是否有代码/脚本/配置/文档文件被修改
-2. 如果有修改，docs/changes/ 下是否已有今天的变更记录
-3. CHANGELOG.md 是否已更新
+在每次任务结束时自动检测变更记录是否完整。
 
 返回 exit code：
 - 0 = 检查通过，或没有需要检查的变更
-- 1 = 检查发现遗漏（会触发提醒但不阻断任务）
+- 1 = 检查发现遗漏
 """
 
 import os
 import sys
 import glob
+import subprocess
 from datetime import datetime
 
 PROJECT_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+
+
+def git(*args):
+    """运行 git 命令，返回 (stdout, stderr, exitcode)"""
+    try:
+        r = subprocess.run(
+            ["git"] + list(args),
+            capture_output=True,
+            text=True,
+            cwd=PROJECT_DIR,
+            timeout=10,
+        )
+        return r.stdout.strip(), r.stderr.strip(), r.returncode
+    except Exception:
+        return "", "git command failed", -1
 
 
 def get_mtime(path):
@@ -30,6 +43,7 @@ def check():
     now = datetime.now()
     today_str = now.strftime("%Y-%m-%d")
     issues = []
+    source_list = []
 
     source_patterns = [
         "scripts/*.js",
@@ -48,6 +62,7 @@ def check():
                 modified_sources.append((f, mtime))
 
     modified_sources.sort(key=lambda x: -x[1])
+    source_list = [os.path.relpath(f, PROJECT_DIR) for f, _ in modified_sources]
 
     if not modified_sources:
         return 0
@@ -59,32 +74,48 @@ def check():
             if f.startswith(today_str) and f.endswith(".md"):
                 today_changes_files.append(f)
 
-    if not today_changes_files:
+    changes_missing = len(today_changes_files) == 0
+    if changes_missing:
         issues.append(
-            f"⚠️ 检测到以下文件有修改，但 docs/changes/ 下缺少今天的变更记录：\n"
+            f"docs/changes/ 缺少今天的变更记录（已修改：{', '.join(source_list)}）"
         )
-        for f, _ in modified_sources[:5]:
-            rel = os.path.relpath(f, PROJECT_DIR)
-            issues.append(f"   - {rel}")
-        issues.append(f"\n  请创建 docs/changes/{now.strftime('%Y-%m-%d-%H%M')}.md")
 
     changelog_path = os.path.join(PROJECT_DIR, "CHANGELOG.md")
+    changelog_missing = False
     if os.path.isfile(changelog_path):
         with open(changelog_path, "r", encoding="utf-8") as f:
             content = f.read()
         if today_str not in content:
-            issues.append(
-                "⚠️ CHANGELOG.md 中没有今天的日期记录。"
-                "请在顶部追加版本条目 (YYYY-MM-DD-HHmm)。"
-            )
+            changelog_missing = True
+            issues.append("CHANGELOG.md 缺少今日版本条目")
     else:
-        issues.append("⚠️ CHANGELOG.md 不存在，请新建并记录本次变更。")
+        changelog_missing = True
+        issues.append("CHANGELOG.md 不存在")
+
+    stdout, _, _ = git("status", "--porcelain")
+    has_uncommitted = bool(stdout)
+    if has_uncommitted:
+        issues.append("存在未提交的变更")
+
+    _, _, push_rc = git("rev-parse", "origin/main")
+    has_unpushed = False
+    if push_rc == 0:
+        local, _, _ = git("rev-parse", "HEAD")
+        remote, _, _ = git("rev-parse", "origin/main")
+        if local and remote and local != remote:
+            has_unpushed = True
+            issues.append("存在未推送的 commit，请按 memory/GIT_PUSH_RULE.md 使用 GitHub MCP 工具推送")
 
     if issues:
-        print("\n=== 变更记录检查 ===")
-        print("\n".join(issues))
-        print("\n请按 SKILL.md 中的「工作规范」补充变更记录。")
-        print("========================\n")
+        print("=== 变更记录检查结果 ===")
+        print(f"需要处理：是")
+        print(f"已修改源文件：{'|'.join(source_list)}")
+        print(f"issues：{'|'.join(issues)}")
+        print(f"changes_missing：{str(changes_missing).lower()}")
+        print(f"changelog_missing：{str(changelog_missing).lower()}")
+        print(f"has_uncommitted：{str(has_uncommitted).lower()}")
+        print(f"has_unpushed：{str(has_unpushed).lower()}")
+        print("=======================")
         return 1
 
     return 0
