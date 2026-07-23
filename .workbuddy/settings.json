@@ -1,12 +1,12 @@
 {
   "hooks": {
-    "PostToolUse": [
+    "Stop": [
       {
-        "matcher": "Write|Edit",
         "hooks": [
           {
-            "type": "prompt",
-            "prompt": "检查本次 Write/Edit 是否涉及项目代码、脚本、配置或文档的修改。如果是，必须提醒 AI 在任务结束前：1. 在 docs/changes/YYYY-MM-DD-HHmm.md 写入详细变更记录 2. 在 CHANGELOG.md 顶部追加版本概要。时间格式用 YYYY-MM-DD-HHmm。如果仅是运行脚本（无代码修改），不需要提醒。"
+            "type": "command",
+            "command": "C:\\Users\\FireLeopardV\\.workbuddy\\binaries\\python\\versions\\3.13.12\\python.exe ${CODEBUDDY_SKILL_DIR}\\scripts\\check_changelog.py",
+            "timeout": 10000
           }
         ]
       }
