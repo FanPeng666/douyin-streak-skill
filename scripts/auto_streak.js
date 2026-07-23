@@ -209,7 +209,7 @@ async function main() {
   });
 
   // 注入 Cookie
-  const cookies = parseCookies(COOKIE_STR);
+  const cookies = parseCookies(COOKIE_STR, config.COOKIE_DOMAIN);
   await context.addCookies(cookies);
   console.log(`  已注入 ${cookies.length} 个 Cookie`);
 
@@ -402,15 +402,22 @@ async function main() {
           if (box && box.x > 1000) {
             // Playwright click
             await friendLocator.click({ force: true, timeout: 3000 });
-            clicked = true;
             console.log(`    点击好友: ${friend.name} (locator)`);
+            clicked = true;
           }
         } catch (_) {}
 
-        if (!clicked) {
-          // 用坐标兜底
-          const refound = await page.evaluate(
-            (name) => {
+        // 检查聊天是否打开（等待输入框出现）
+        if (clicked) {
+          await sleep(config.FRIEND_CLICK_WAIT);
+          let chatOpened = await page.evaluate(() => {
+            const el = document.querySelector('[contenteditable="true"]');
+            return el && el.offsetParent !== null;
+          });
+          // 如果没打开，用坐标重试
+          if (!chatOpened) {
+            console.log('    locator 点击后聊天未打开，尝试坐标点击...');
+            const refound = await page.evaluate((name) => {
               const walker = document.createTreeWalker(document.body, NodeFilter.SHOW_TEXT, null, false);
               let node;
               while ((node = walker.nextNode())) {
@@ -424,24 +431,26 @@ async function main() {
                 }
               }
               return null;
-            },
-            friend.name
-          );
-
-          if (refound) {
-            await page.mouse.click(refound.x, refound.y);
-            console.log(`    点击好友: ${friend.name} (坐标 ${Math.round(refound.x)}, ${Math.round(refound.y)})`);
-            clicked = true;
+            }, friend.name);
+            if (refound) {
+              await page.mouse.click(refound.x, refound.y);
+              await sleep(config.FRIEND_CLICK_WAIT);
+              clicked = true;
+            }
           }
         }
 
-        if (!clicked) {
-          // 最后兜底：直接用 friend 匹配到的坐标
-          await page.mouse.click(friend.x, friend.y);
-          console.log(`    点击好友: ${friend.name} (匹配坐标 ${Math.round(friend.x)}, ${Math.round(friend.y)})`);
+        // 验证聊天是否真的打开了
+        const chatReallyOpened = await page.evaluate(() => {
+          const el = document.querySelector('[contenteditable="true"]');
+          return el && el.offsetParent !== null;
+        });
+        if (!chatReallyOpened) {
+          console.log(`    ✗ ${friend.name} — 聊天未打开`);
+          results.push({ name: friend.name, message: MESSAGE_TEXT, verified: false, duration: '0s', status: '❌ 聊天未打开' });
+          await closeChat(page);
+          continue;
         }
-
-        await sleep(config.FRIEND_CLICK_WAIT);
 
         // 关闭弹窗
         await dismissLoginSavePopup(page);
