@@ -4,6 +4,21 @@
 
 ---
 
+## v2.3.0 (2026-07-23-1207)
+
+### Added
+- 新增 Stop Hook + `check_changelog.py` 自动检查变更记录机制
+- 新增 `.workbuddy/settings.json` 项目级 hooks 配置
+
+### Changed
+- 好友名称参数从可选改为**必传**，移除默认值列表
+- `parsePromptArgs` 中 `friendNames` 初始值从 `DEFAULT_FRIEND_NAMES` 改为 `null`
+- SKILL.md / prompts / README / MEMORY 参数表同步更新
+
+详见：[docs/changes/2026-07-23-1207.md](docs/changes/2026-07-23-1207.md)
+
+---
+
 ## v2.2.1 (2026-07-23-1042)
 
 ### Fixed
