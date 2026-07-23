@@ -50,3 +50,6 @@ window.chrome = { runtime: {}, loadTimes: () => ({}), csi: () => ({}) }
 2. 在 `CHANGELOG.md` 顶部追加版本概要 + 链接到详细记录
 3. 时间格式严格为 `YYYY-MM-DD-HHmm`，使用 `fmtLogTime()` 生成
 4. 具体格式和规范参照 `SKILL.md` 中的「工作规范」章节
+
+### GitHub 推送
+GitHub 推送方式见 `memory/GIT_PUSH_RULE.md`，统一使用官方 GitHub MCP 工具。
