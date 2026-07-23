@@ -79,9 +79,9 @@ sid_tt=xxx; sid_guard=xxx; ttwid=xxx; s_v_web_id=xxx
 ```
 ├── SKILL.md                     ← 本文件
 ├── README.md
-├── CHANGELOG.md                 ← 版本概要索引
+├── CHANGELOG.md                 ← 版本概要索引（**每次修改后必须更新**）
 ├── docs/
-│   └── changes/                 ← 详细变更记录
+│   └── changes/                 ← 详细变更记录（**每次修改后必须新建**）
 ├── prompts/
 │   └── 自动续火花.md              ← WorkBuddy 任务 Prompt
 ├── scripts/
@@ -89,3 +89,21 @@ sid_tt=xxx; sid_guard=xxx; ttwid=xxx; s_v_web_id=xxx
 │   ├── utils.js                 ← 通用工具函数
 │   └── auto_streak.js           ← Playwright 自动化入口
 ```
+
+## 工作规范
+
+**以下规则必须执行，不依赖用户是否在 Prompt 中提醒。**
+
+### 自动变更记录
+对本项目完成任何代码/脚本/配置/文档修改后，**必须立即**：
+1. 创建 `docs/changes/YYYY-MM-DD-HHmm.md` 详细变更记录（参见现有记录格式）
+2. 在 `CHANGELOG.md` 顶部追加版本概要 + 链接到详细记录
+3. 时间格式严格使用 `utils.fmtLogTime()` 生成的 `YYYY-MM-DD-HHmm`
+
+### 版本号规则
+- **major**：重大架构变更或不兼容改动
+- **minor**：新增功能或重要优化
+- **patch**：Bug 修复或小调整
+
+### 修改前需检查
+- `parseCookies` 等函数签名变更后，**必须全局搜索所有调用处**再提交

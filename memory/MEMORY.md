@@ -48,4 +48,5 @@ window.chrome = { runtime: {}, loadTimes: () => ({}), csi: () => ({}) }
 对本项目完成任何代码/配置/文档修改后，必须：
 1. 在 `docs/changes/YYYY-MM-DD-HHmm.md` 写入详细变更记录
 2. 在 `CHANGELOG.md` 顶部追加版本概要 + 链接到详细记录
-3. 时间格式严格为 `YYYY-MM-DD-HHmm`（示例：`2026-07-23-1430`），脚本中 `fmtLogTime()` 可直接生成
+3. 时间格式严格为 `YYYY-MM-DD-HHmm`，使用 `fmtLogTime()` 生成
+4. 具体格式和规范参照 `SKILL.md` 中的「工作规范」章节
