@@ -31,7 +31,8 @@ if (!params.cookie) {
   process.exit(1);
 }
 if (!params.friendNames || params.friendNames.length === 0) {
-  console.error('❌ 好友名称为空。');
+  console.error('❌ 好友名称未提供，请在 Prompt 中传入。');
+  console.error('格式：好友名称：火豹v');
   process.exit(1);
 }
 if (!params.messageText) {
@@ -253,7 +254,7 @@ async function main() {
       process.exit(1);
     }
 
-    // 检查是否真的登录（页面应包含用户信息或已签发 enter_pc_once 等）
+    // 检查是否真的登录
     const isLoggedIn = await checkLoginState(page);
     if (!isLoggedIn) {
       console.error('❌ Cookie 注入后页面仍显示未登录，请检查 Cookie 是否有效。');
@@ -273,12 +274,10 @@ async function main() {
       await imEntry.waitFor({ state: 'visible', timeout: 10000 });
       const box = await imEntry.boundingBox();
       if (box) {
-        // hover 激活
         await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2);
         await sleep(config.HOVER_DELAY);
         await page.mouse.click(box.x + box.width / 2, box.y + box.height / 2);
       } else {
-        // 坐标兜底
         await page.mouse.move(config.IM_ENTRY_X, config.IM_ENTRY_Y);
         await sleep(config.HOVER_DELAY);
         await page.mouse.click(config.IM_ENTRY_X, config.IM_ENTRY_Y);
@@ -291,11 +290,10 @@ async function main() {
     }
     await sleep(config.PANEL_OPEN_WAIT);
 
-    // 再次关闭弹窗（面板打开后可能出现新弹窗）
+    // 再次关闭弹窗
     await dismissLoginSavePopup(page);
 
-    // 验证面板出现 — 不再检查 conversation class（DOM 结构已变）
-    // 改为检查是否出现了"互动消息"或"私信"等面板内容
+    // 验证面板出现
     const panelVisible = await page.evaluate(() => {
       const text = document.body.innerText;
       return text.includes('互动消息') || text.includes('私信');
@@ -310,7 +308,7 @@ async function main() {
       await dismissLoginSavePopup(page);
     }
 
-    // 切换到「私信」tab（默认可能在「互动消息」）
+    // 切换到「私信」tab
     console.log('  切换到「私信」tab...');
     await switchToPrivateMessageTab(page);
     await sleep(2000);
@@ -320,13 +318,12 @@ async function main() {
     // ── 第 4 步：按名称匹配好友 ──
     console.log('[4/6] 按名称匹配好友...');
 
-    // 使用文本扫描方式匹配好友（限定在消息面板区域）
+    // 使用文本扫描方式匹配好友
     const matchedFriends = await page.evaluate(
       (friendNames) => {
         const results = [];
         const foundNames = new Set();
 
-        // 找到消息面板区域（右侧面板中下部：x > 1000, y > 150）
         const textNodes = [];
         const walker = document.createTreeWalker(document.body, NodeFilter.SHOW_TEXT, null, false);
         let node;
@@ -336,9 +333,7 @@ async function main() {
           const parent = node.parentElement;
           if (!parent) continue;
           const rect = parent.getBoundingClientRect();
-          // 限定在右侧面板区域
           if (rect.left < 1000 || rect.top < 150 || rect.width < 20) continue;
-          // 排除非好友文本
           const excludes = ['互动消息', '全部消息', '私信', '去设置', '下载', '下载客户端',
             '消息', '通知', '赞了你的作品', '赞了你的评论', '关注了你', '等', '回关',
             '推荐了你的视频', '直播中', '重燃中', '在线', '分钟前在线', '小时前在线'];
@@ -347,15 +342,12 @@ async function main() {
           textNodes.push({ text, x: rect.left + rect.width / 2, y: rect.top + rect.height / 2, left: rect.left, top: rect.top, width: rect.width, height: rect.height });
         }
 
-        // 按位置排序（从上到下）
         textNodes.sort((a, b) => a.y - b.y || a.x - b.x);
 
-        // 匹配目标好友名（使用行容器坐标，向左偏移到头像区域）
         for (let i = 0; i < friendNames.length; i++) {
           const name = friendNames[i];
           for (const tn of textNodes) {
             if (tn.text === name) {
-              // 向左偏移 100px 到好友行容器的可点击区域（靠近头像）
               results.push({ name, x: tn.x - 100, y: tn.y, index: i });
               foundNames.add(name);
               break;
@@ -363,7 +355,6 @@ async function main() {
           }
         }
 
-        // 按原始顺序排序
         results.sort((a, b) => a.index - b.index);
         return results;
       },
@@ -374,7 +365,6 @@ async function main() {
     for (const f of matchedFriends) {
       console.log(`    ✓ ${f.name} (${Math.round(f.x)}, ${Math.round(f.y)})`);
     }
-    // 检查未匹配的
     const matchedNames = new Set(matchedFriends.map((f) => f.name));
     for (const name of FRIEND_NAMES) {
       if (!matchedNames.has(name)) {
@@ -391,61 +381,62 @@ async function main() {
       console.log(`  → 处理好友: ${friend.name}`);
 
       try {
-        // 使用 Playwright locator 直接点击好友名称
+        // 使用 Playwright locator 点击好友
         const friendLocator = page.locator(`text="${friend.name}"`).filter({
           hasNot: page.locator('[class*="header"], [class*="Header"], [class*="profile"], [class*="Profile"]')
         }).first();
 
         let clicked = false;
+        let chatOpened = false;
+        
+        // 尝试 locator 点击
         try {
           const box = await friendLocator.boundingBox({ timeout: 2000 });
           if (box && box.x > 1000) {
-            // Playwright click
             await friendLocator.click({ force: true, timeout: 3000 });
             console.log(`    点击好友: ${friend.name} (locator)`);
             clicked = true;
           }
         } catch (_) {}
 
-        // 检查聊天是否打开（等待输入框出现）
         if (clicked) {
           await sleep(config.FRIEND_CLICK_WAIT);
-          let chatOpened = await page.evaluate(() => {
+          chatOpened = await page.evaluate(() => {
             const el = document.querySelector('[contenteditable="true"]');
             return el && el.offsetParent !== null;
           });
-          // 如果没打开，用坐标重试
-          if (!chatOpened) {
-            console.log('    locator 点击后聊天未打开，尝试坐标点击...');
-            const refound = await page.evaluate((name) => {
-              const walker = document.createTreeWalker(document.body, NodeFilter.SHOW_TEXT, null, false);
-              let node;
-              while ((node = walker.nextNode())) {
-                if (node.textContent.trim() === name) {
-                  const parent = node.parentElement;
-                  if (!parent) continue;
-                  const rect = parent.getBoundingClientRect();
-                  if (rect.left > 1000 && rect.width > 20) {
-                    return { x: rect.left - 100, y: rect.top + rect.height / 2 };
-                  }
+        }
+
+        // locator 点击后聊天未打开，坐标兜底
+        if (!chatOpened) {
+          console.log('    locator 点击后聊天未打开，尝试坐标点击...');
+          const refound = await page.evaluate((name) => {
+            const walker = document.createTreeWalker(document.body, NodeFilter.SHOW_TEXT, null, false);
+            let node;
+            while ((node = walker.nextNode())) {
+              if (node.textContent.trim() === name) {
+                const parent = node.parentElement;
+                if (!parent) continue;
+                const rect = parent.getBoundingClientRect();
+                if (rect.left > 1000 && rect.width > 20) {
+                  return { x: rect.left - 100, y: rect.top + rect.height / 2 };
                 }
               }
-              return null;
-            }, friend.name);
-            if (refound) {
-              await page.mouse.click(refound.x, refound.y);
-              await sleep(config.FRIEND_CLICK_WAIT);
-              clicked = true;
             }
+            return null;
+          }, friend.name);
+          
+          if (refound) {
+            await page.mouse.click(refound.x, refound.y);
+            await sleep(config.FRIEND_CLICK_WAIT);
+            chatOpened = await page.evaluate(() => {
+              const el = document.querySelector('[contenteditable="true"]');
+              return el && el.offsetParent !== null;
+            });
           }
         }
 
-        // 验证聊天是否真的打开了
-        const chatReallyOpened = await page.evaluate(() => {
-          const el = document.querySelector('[contenteditable="true"]');
-          return el && el.offsetParent !== null;
-        });
-        if (!chatReallyOpened) {
+        if (!chatOpened) {
           console.log(`    ✗ ${friend.name} — 聊天未打开`);
           results.push({ name: friend.name, message: MESSAGE_TEXT, verified: false, duration: '0s', status: '❌ 聊天未打开' });
           await closeChat(page);
@@ -456,14 +447,10 @@ async function main() {
         await dismissLoginSavePopup(page);
 
         // 定位输入框
-        let inputBox = null;
-        // 优先 contenteditable
-        inputBox = page.locator('[contenteditable="true"]').first();
+        let inputBox = page.locator('[contenteditable="true"]').first();
         try {
           const box = await inputBox.boundingBox({ timeout: 3000 });
-          if (box && box.width > config.INPUT_MIN_WIDTH) {
-            // OK
-          } else {
+          if (!(box && box.width > config.INPUT_MIN_WIDTH)) {
             inputBox = null;
           }
         } catch (_) {
@@ -471,7 +458,6 @@ async function main() {
         }
 
         if (!inputBox) {
-          // 备选
           inputBox = page.locator('div[placeholder="发送消息"]').first();
           try {
             await inputBox.waitFor({ state: 'visible', timeout: 3000 });
@@ -483,12 +469,11 @@ async function main() {
         if (!inputBox) {
           console.log(`    ✗ ${friend.name} — 未找到输入框`);
           results.push({ name: friend.name, message: MESSAGE_TEXT, verified: false, duration: `${((Date.now() - friendStart) / 1000).toFixed(0)}s`, status: '❌ 输入框未找到' });
-          // 关闭聊天回到列表
           await closeChat(page);
           continue;
         }
 
-        // 点击输入框获取焦点
+        // 点击输入框
         const inpBox = await inputBox.boundingBox();
         if (inpBox) {
           await page.mouse.click(inpBox.x + inpBox.width / 2, inpBox.y + inpBox.height / 2);
@@ -497,7 +482,6 @@ async function main() {
         }
         await sleep(config.INPUT_FOCUS_WAIT);
 
-        // 发送前记录（用于验证）
         const beforeText = await getLastMessageText(page);
 
         // 打字并发送（最多重试 2 次）
@@ -505,24 +489,20 @@ async function main() {
         for (let attempt = 0; attempt < config.SEND_MAX_RETRIES; attempt++) {
           if (attempt > 0) console.log(`    重试发送 (${attempt + 1}/${config.SEND_MAX_RETRIES})...`);
 
-          // 重新点击输入框
           try {
             const box = await inputBox.boundingBox();
             if (box) await page.mouse.click(box.x + box.width / 2, box.y + box.height / 2);
-          } catch (_) { /* ignore */ }
+          } catch (_) {}
           await sleep(300);
 
-          // 清空并输入
           await page.keyboard.press('Control+a');
           await page.keyboard.press('Backspace');
           await sleep(200);
           await page.keyboard.type(MESSAGE_TEXT, { delay: config.TYPE_DELAY });
           await sleep(config.POST_TYPE_WAIT);
 
-          // 发送策略：先 Enter，再 hover+click 发送按钮
+          // 发送：先 Enter，再 hover+click 发送按钮
           let sent = false;
-
-          // 方式1: Enter
           try {
             await page.keyboard.press('Enter');
             await sleep(2000);
@@ -533,7 +513,6 @@ async function main() {
             if (!stillHasText) { sent = true; console.log('    [send] Enter 已发送'); }
           } catch (_) {}
 
-          // 方式2: hover + click 发送按钮
           if (!sent) {
             try {
               const sendBtn = page.locator('[class*="send-msg"], [class*="sendMsg"], [class*="Send"], [data-e2e*="send"]').first();
@@ -557,7 +536,6 @@ async function main() {
             sendOk = true;
             break;
           }
-          // 放宽验证：检查聊天区域任何位置
           const bodyHasMsg = await page.evaluate((msg) => {
             return document.body.innerText.includes(msg);
           }, MESSAGE_TEXT);
@@ -577,7 +555,6 @@ async function main() {
           results.push({ name: friend.name, message: MESSAGE_TEXT, verified: false, duration, status: '❌ 验证失败' });
         }
 
-        // 关闭聊天，回到好友列表
         await closeChat(page);
         await sleep(config.FRIEND_INTERVAL);
       } catch (err) {
@@ -597,7 +574,6 @@ async function main() {
     const successCount = results.filter((r) => r.status === '✅').length;
     const failCount = results.filter((r) => r.status !== '✅').length;
 
-    // 输出 Markdown 报告
     const logTime = fmtLogTime();
     const reportLines = [
       `### 抖音续火花报告 | ${logTime}`,
@@ -617,7 +593,6 @@ async function main() {
     const report = reportLines.join('\n');
     console.log('\n' + report);
 
-    // 保存报告到文件
     const reportDir = path.join(__dirname, '..', 'reports');
     if (!fs.existsSync(reportDir)) fs.mkdirSync(reportDir, { recursive: true });
     const reportFile = path.join(reportDir, `${logTime}-续火花报告.md`);
@@ -641,27 +616,23 @@ async function main() {
 /** 关闭当前聊天，返回好友列表 */
 async function closeChat(page) {
   try {
-    // 查找关闭按钮（通常在聊天面板顶部右侧）
     const closeBtn = page.locator('[class*="close"], [class*="Close"], [data-e2e="chat-close"]').first();
     if (await closeBtn.isVisible({ timeout: 2000 }).catch(() => false)) {
       await closeBtn.click({ timeout: 2000 });
       await sleep(config.CHAT_CLOSE_WAIT);
       return;
     }
-  } catch (_) { /* ignore */ }
-
-  // 坐标兜底：点击右侧区域关闭
+  } catch (_) {}
   try {
     await page.mouse.click(config.CLOSE_BUTTON_X_MIN + 100, 50);
     await sleep(config.CHAT_CLOSE_WAIT);
-  } catch (_) { /* ignore */ }
+  } catch (_) {}
 }
 
 /** 获取聊天区最后一条消息文本 */
 async function getLastMessageText(page) {
   try {
     return await page.evaluate(() => {
-      // DraftEditor 的消息在 [class*="DraftEditor"] 或其父容器中
       const selectors = [
         '[class*="DraftEditor"] [data-text="true"] span',
         '[class*="DraftEditor"] span[data-text="true"]',
@@ -684,10 +655,6 @@ async function getLastMessageText(page) {
     return '';
   }
 }
-
-// ============================================
-// 启动
-// ============================================
 
 main().catch((e) => {
   console.error('执行失败:', e.message);

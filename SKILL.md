@@ -40,13 +40,13 @@ Cookie：sessionid=xxx; passport_csrf_token=xxx; odin_tt=xxx; uid_tt=xxx; sid_tt
 ```
 
 | 参数名 | 必传 | 默认值 | 说明 |
-|--------|------|--------|------|
+|--------|:----:|--------|------|
 | Cookie | **是** | 无 | 抖音 8 字段 Cookie 字符串 |
-| 好友名称 | 否 | 瑞士、江川、老张、赵坤 | 中文顿号或逗号分隔 |
+| 好友名称 | **是** | 无 | 好友用户名，多个用顿号/逗号分隔 |
 | 发送内容 | 否 | 🔥 | 要发送的消息文本 |
 
 - Cookie 未提供 → 终止并提示「Cookie 未提供」
-- 好友名称未提供 → 使用默认列表
+- 好友名称未提供 → 终止并提示「好友名称未提供」
 - 发送内容未提供 → 使用默认 🔥
 
 ## 认证
@@ -57,13 +57,6 @@ Cookie 通过 Prompt 参数传入，不写入任何文件。
 ```
 sessionid=xxx; passport_csrf_token=xxx; odin_tt=xxx; uid_tt=xxx;
 sid_tt=xxx; sid_guard=xxx; ttwid=xxx; s_v_web_id=xxx
-```
-
-## 目标好友
-
-默认列表（可通过 Prompt 参数「好友名称」覆盖）：
-```
-瑞士、江川、老张、赵坤
 ```
 
 ## 安全约定

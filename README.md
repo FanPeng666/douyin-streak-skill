@@ -36,7 +36,7 @@
 
 | 组件 | 用途 |
 |------|------|
-| Node.js 22 | 脚本运行环境 |
+| Node.js 22 | ��本运行环境 |
 | Playwright | 浏览器自动化（Cookie 注入、DOM 操作、消息发送） |
 | Headless Chromium | 无头浏览器执行 |
 
@@ -45,8 +45,8 @@
 ```
 用户 Prompt 输入
   Cookie：xxx
-  好友名称：瑞士、江川、老张、赵坤    ← （可选，有默认值）
-  发送内容：🔥                     ← （可选，有默认值）
+  好友名称：火豹v    ← 必传
+  发送内容：🔥       ← （可选，默认 🔥）
         │
         ▼
   parsePromptArgs(promptText)
@@ -76,14 +76,8 @@
    ```
    续火花
    Cookie：sessionid=xxx; passport_csrf_token=xxx; odin_tt=xxx; uid_tt=xxx; sid_tt=xxx; sid_guard=xxx; ttwid=xxx; s_v_web_id=xxx
-   ```
-
-   也可以自定义好友和消息：
-   ```
-   续火花
-   Cookie：sessionid=xxx; passport_csrf_token=xxx; ...
-   好友名称：张三、李四
-   发送内容：早
+   好友名称：火豹v
+   发送内容：🔥
    ```
 
 4. 设置定时触发（建议每天一次）
@@ -101,9 +95,9 @@ node scripts/auto_streak.js "Cookie：sessionid=xxx; ..."
 ## Prompt 参数说明
 
 | 参数名 | 必传 | 默认值 | 格式 |
-|--------|------|--------|------|
+|--------|:----:|--------|------|
 | `Cookie` | **是** | 无 | 8 字段 Cookie 字符串 |
-| `好友名称` | 否 | 瑞士、江川、老张、赵坤 | 顿号/逗号分隔 |
+| `好友名称` | **是** | 无 | 好友用户名，多个用顿号/逗号分隔 |
 | `发送内容` | 否 | 🔥 | 任意文本 |
 
 Cookie 为精简 8 字段格式（`sessionid, passport_csrf_token, odin_tt, uid_tt, sid_tt, sid_guard, ttwid, s_v_web_id`）。

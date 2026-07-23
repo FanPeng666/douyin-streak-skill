@@ -13,11 +13,11 @@
 const COOKIE = null;
 
 /**
- * 目标好友名称列表（可选，默认值如下）
+ * 目标好友名称列表（必传，无默认值）
  * Prompt 参数名：好友名称
  * 格式：名称1、名称2、名称3（中文顿号或逗号分隔）
  */
-const DEFAULT_FRIEND_NAMES = ['瑞士', '江川', '老张', '赵坤'];
+const DEFAULT_FRIEND_NAMES = undefined;
 
 /**
  * 续火消息内容（可选，默认值如下）
@@ -121,15 +121,15 @@ const CAPTCHA_KEYWORDS = ['请完成下列验证', '滑块验证', '验证码'];
  *   发送内容：🔥
  *
  * @param {string} promptText - 用户输入的完整 prompt 文本
- * @returns {{ cookie: string|null, friendNames: string[], messageText: string }}
+ * @returns {{ cookie: string|null, friendNames: string[]|null, messageText: string }}
  *   - cookie: 必传，未提供则返回 null
- *   - friendNames: 可选，未提供使用 DEFAULT_FRIEND_NAMES
+ *   - friendNames: 必传，未提供则返回 null
  *   - messageText: 可选，未提供使用 DEFAULT_MESSAGE_TEXT
  */
 function parsePromptArgs(promptText) {
   const result = {
     cookie: null,
-    friendNames: [...DEFAULT_FRIEND_NAMES],
+    friendNames: null,
     messageText: DEFAULT_MESSAGE_TEXT,
   };
 
