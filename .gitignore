@@ -49,7 +49,10 @@ credentials.json
 # ============================================
 # WorkBuddy 本地数据
 # ============================================
-.workbuddy/
+.workbuddy/memory/
+.workbuddy/*.tmp
+.workbuddy/*.log
+!.workbuddy/settings.json
 
 # ============================================
 # 历史报告（含截图等本地产物）
