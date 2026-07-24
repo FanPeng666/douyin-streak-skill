@@ -153,22 +153,33 @@
 
 ```bash
 git fetch origin
-git reset --hard origin/main
+git reset --hard FETCH_HEAD
 ```
 
-> **说明**：MCP 推送后远程有新 commit，本地 git 历史落后。`reset --hard` 将本地 HEAD 和工作区同步到远程最新版本，这是"同步到本地"的默认含义。
+> **说明**：MCP 推送后远程有新 commit，本地 git 历史落后。`reset --hard` 将本地 HEAD 和工作区同步到远程最新版本。使用 `FETCH_HEAD`（而非 `origin/main`）可绕过 ref 缓存问题。
 
 如果不希望覆盖工作区文件，可以仅更新远程引用：
 ```bash
 git fetch origin
 ```
-仅更新 `origin/main` 指针，不碰工作区。
+仅更新远程引用，不碰工作区。
+
+## 辅助脚本
+
+放在 `scripts/` 目录中，可减少手动操作：
+
+| 脚本 | 用途 | 运行方式 |
+|------|------|---------|
+| `sync_local.bat` | 同步远程到本地（fetch + reset --hard） | 双击或终端执行 |
+| `generate_push_json.js` | 生成 MCP push_files payload JSON | `node scripts/generate_push_json.js "commit message"` |
+
+`generate_push_json.js` 会在终端输出完整的 MCP 调用参数，AI 可直接 copy 输出用于 `DeferExecuteTool`，跳过 Read 文件步骤。
 
 ## 注意事项
 
-- `push_files` 会直接向 GitHub 远程仓库创建一个新的 Commit，不经过��地 Git 流程
+- `push_files` 会直接向 GitHub 远程仓库创建一个新的 Commit，不经过本地 Git 流程
 - 推送后本地与远程会不一致，这是正常状态
-- **本地同���由用户按需触发**，不自动执行
+- **本地同步由用户按需触发**，不自动执行
 - 文件内容中的特殊字符（如反斜杠、引号）需要正确转义
 
 ---
