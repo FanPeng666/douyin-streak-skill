@@ -31,6 +31,9 @@
 │   └── changes/               # 详细变更记录（YYYY-MM-DD-HHmm.md）
 ├── prompts/
 │   └── 自动续火花.md            # WorkBuddy 任务 Prompt
+├── screenshots/
+│   ├── success/               # 发送成功截图
+│   └── failure/               # 发送失败截图
 ├── scripts/
 │   ├── config.js              # 常量 + Prompt 参数解析
 │   ├── utils.js               # 通用工具函数
