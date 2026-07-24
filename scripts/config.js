@@ -51,7 +51,6 @@ const COOKIE_KEYS = [
 
 // ── URL 地址 ───────────────────────────────────
 
-const DOUYIN_URL = 'https://www.douyin.com/';
 const CHAT_URL = 'https://www.douyin.com/chat?isPopup=1';
 const PAGE_TITLE_CHECK = '抖音';
 
@@ -112,8 +111,6 @@ const DOM_MAX_RETRIES = 2;
 const POPUP_MAX_RETRIES = 3;
 
 // ── 页面检测────────────────────────────────────
-
-const PAGE_TITLE_CHECK = '抖音';
 const CAPTCHA_KEYWORDS = ['请完成下列验证', '滑块验证', '验证码'];
 
 // ── Prompt 参数解析 ───────────────────────────
@@ -199,6 +196,9 @@ module.exports = {
   VIEWPORT,
   BROWSER_ARGS,
   USER_AGENT,
+  DOUYIN_URL,
+  CHAT_URL,
+  PAGE_TITLE_CHECK,
   PAGE_LOAD_WAIT,
   HOVER_DELAY,
   PANEL_OPEN_WAIT,

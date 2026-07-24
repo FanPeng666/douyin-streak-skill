@@ -104,26 +104,40 @@ async function takeScreenshot(page, subdir, name) {
   } catch (_) {}
 }
 
-/** 获取聊天区最后一条消息文本 */
+/** 获取聊天区最后一条消息文本（仅右侧聊天面板） */
 async function getLastMessageText(page) {
   try {
     return await page.evaluate(() => {
-      const selectors = [
-        '[class*="DraftEditor"] [data-text="true"] span',
-        '[class*="DraftEditor"] span[data-text="true"]',
-        '[class*="message"] [class*="text"]',
-        '[class*="Message"] [class*="Text"]',
-        '[class*="chat"] [class*="msg"] span',
-        '[class*="im-chat"] [class*="text"]',
-        '[class*="message"] span',
-      ];
-      for (const sel of selectors) {
-        const els = document.querySelectorAll(sel);
-        if (els.length > 0) return els[els.length - 1].textContent.trim();
-      }
-      return '';
+      // 只看右侧聊天面板：left >= 500（避开左侧好友列表）
+      // 找到所有可能是消息的元素
+      const allEls = Array.from(document.querySelectorAll('[class*="message"], [class*="Message"], [class*="chat-msg"], [class*="DraftEditor"], [class*="bubble"]'));
+      const rightEls = allEls.filter((el) => {
+        const r = el.getBoundingClientRect();
+        return r.left >= 500 && r.width > 20 && r.height > 10;
+      });
+      if (rightEls.length === 0) return '';
+      // 取最后一个（按 y 位置最靠下的）
+      rightEls.sort((a, b) => b.getBoundingClientRect().top - a.getBoundingClientRect().top);
+      const last = rightEls[0];
+      // 取文字
+      const text = (last.innerText || last.textContent || '').trim();
+      return text;
     });
   } catch (_) { return ''; }
+}
+
+/** 检查右侧聊天面板是否包含指定文本 */
+async function chatPanelContains(page, text) {
+  try {
+    return await page.evaluate((t) => {
+      const allEls = Array.from(document.querySelectorAll('[class*="message"], [class*="Message"], [class*="chat-msg"], [class*="DraftEditor"], [class*="bubble"], [class*="chat"]'));
+      const rightText = allEls.filter((el) => {
+        const r = el.getBoundingClientRect();
+        return r.left >= 500;
+      }).map((el) => el.innerText || '').join('\n');
+      return rightText.includes(t);
+    }, text);
+  } catch (_) { return false; }
 }
 
 // ============================================
@@ -188,7 +202,8 @@ async function main() {
 
     const matchedFriends = await page.evaluate((friendNames) => {
       const results = [];
-      const textNodes = [];
+      // 存储候选文本的位置（去重后的好友名）
+      const candidates = [];
       const walker = document.createTreeWalker(document.body, NodeFilter.SHOW_TEXT, null, false);
       let node;
       while ((node = walker.nextNode())) {
@@ -203,17 +218,41 @@ async function main() {
           '推荐了你的视频', '直播中', '重燃中', '在线', '分钟前在线', '小时前在线',
           '开启读屏标签', '读屏标签已关闭', '是否保存登录信息'];
         if (excludes.some((e) => text === e || text.startsWith(e))) continue;
-        textNodes.push({ text, x: rect.left + rect.width / 2, y: rect.top + rect.height / 2 });
+        // 向上找行容器（宽度 > 150 的父元素）
+        let row = parent;
+        for (let i = 0; i < 5; i++) {
+          if (!row) break;
+          const r = row.getBoundingClientRect();
+          if (r.width > 150 && r.height > 40) {
+            candidates.push({
+              text,
+              x: r.left + r.width / 2,
+              y: r.top + r.height / 2,
+              left: r.left, top: r.top,
+              width: r.width, height: r.height
+            });
+            break;
+          }
+          row = row.parentElement;
+        }
       }
 
-      // 按 y 排序（从上到下）
-      textNodes.sort((a, b) => a.y - b.y);
+      // 按 y 去重（同一行只保留一个）
+      candidates.sort((a, b) => a.y - b.y);
+      const deduped = [];
+      let lastY = 0;
+      for (const c of candidates) {
+        if (Math.abs(c.y - lastY) > 30) {
+          deduped.push(c);
+          lastY = c.y;
+        }
+      }
 
       for (let i = 0; i < friendNames.length; i++) {
         const name = friendNames[i];
-        for (const tn of textNodes) {
-          if (tn.text === name) {
-            results.push({ name, x: tn.x, y: tn.y, index: i });
+        for (const c of deduped) {
+          if (c.text === name) {
+            results.push({ name, x: Math.round(c.x), y: Math.round(c.y), index: i });
             break;
           }
         }
@@ -246,11 +285,42 @@ async function main() {
         await page.mouse.click(friend.x, friend.y);
         await sleep(config.FRIEND_CLICK_WAIT);
 
-        // 验证聊天是否打开（输入框是否可见）
-        let chatOpened = await page.evaluate(() => {
-          const el = document.querySelector('[contenteditable="true"]');
-          return el && el.offsetParent !== null;
-        });
+        // 验证聊天头部是否已切换到目标好友
+        let chatOpened = await page.evaluate((targetName) => {
+          const walker = document.createTreeWalker(document.body, NodeFilter.SHOW_TEXT, null, false);
+          let node;
+          while ((node = walker.nextNode())) {
+            const parent = node.parentElement;
+            if (!parent) continue;
+            const rect = parent.getBoundingClientRect();
+            // 聊天头部在 top 0-60，left >= 300（右侧聊天区顶部）
+            if (rect.top >= 0 && rect.top <= 60 && rect.left >= 300 && rect.width > 10) {
+              const text = (node.textContent || '').trim();
+              if (text === targetName || text.startsWith(targetName + ' ')) return true;
+            }
+          }
+          return false;
+        }, friend.name);
+
+        if (!chatOpened) {
+          console.log('    聊天头部未切换，重试点击...');
+          await page.mouse.click(friend.x, friend.y);
+          await sleep(config.FRIEND_CLICK_WAIT);
+          chatOpened = await page.evaluate((targetName) => {
+            const walker = document.createTreeWalker(document.body, NodeFilter.SHOW_TEXT, null, false);
+            let node;
+            while ((node = walker.nextNode())) {
+              const parent = node.parentElement;
+              if (!parent) continue;
+              const rect = parent.getBoundingClientRect();
+              if (rect.top >= 0 && rect.top <= 60 && rect.left >= 300 && rect.width > 10) {
+                const text = (node.textContent || '').trim();
+                if (text === targetName || text.startsWith(targetName + ' ')) return true;
+              }
+            }
+            return false;
+          }, friend.name);
+        }
 
         if (!chatOpened) {
           // 尝试 locator 点击兜底
@@ -350,11 +420,11 @@ async function main() {
 
           await sleep(config.POST_SEND_WAIT);
 
-          // 验证
+          // 验证：取聊天面板最后一条消息 + 检查整个面板
           const afterText = await getLastMessageText(page);
           if (afterText === MESSAGE_TEXT || afterText.includes(MESSAGE_TEXT)) { sendOk = true; break; }
-          const bodyHasMsg = await page.evaluate((msg) => document.body.innerText.includes(msg), MESSAGE_TEXT);
-          if (bodyHasMsg) { sendOk = true; break; }
+          const chatHasMsg = await chatPanelContains(page, MESSAGE_TEXT);
+          if (chatHasMsg) { sendOk = true; break; }
           console.log(`    验证失败: 预期"${MESSAGE_TEXT}", 实际"${afterText}"`);
         }
 
