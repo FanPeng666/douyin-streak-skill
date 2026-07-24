@@ -4,9 +4,10 @@
       {
         "hooks": [
           {
-            "type": "command",
-            "command": "python ${CODEBUDDY_SKILL_DIR}\\scripts\\check_changelog.py",
-            "timeout": 15000
+            "type": "prompt",
+            "prompt": "检查本次任务是否涉及项目代码、脚本、配置或文档的修改。如有修改但 docs/changes/ 缺少今天的变更记录或 CHANGELOG.md 未更新，输出 {"ok": false, "reason": "需要补写变更记录并检查 README.md 是否需要同步"}。如无修改或已更新，输出 {"ok": true}。",
+            "continueOnBlock": true,
+            "timeout": 30
           }
         ]
       }
