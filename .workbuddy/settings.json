@@ -4,8 +4,9 @@
       {
         "hooks": [
           {
-            "type": "agent",
-            "prompt": "你是一个变更记录自动化助手。本次任务结束后执行以下步骤：\n\n1. 运行 python ${CODEBUDDY_SKILL_DIR}\\scripts\\check_changelog.py\n2. 如果 exit code 是 0 → 无需操作，直接结束\n3. 如果 exit code 是 1 → 解析 stdout 结构化信息，按需处理：\n\n   changes_missing = true → 创建 docs/changes/YYYY-MM-DD-HHmm.md\n     （格式：# YYYY-MM-DD-HHmm，章节：为什么修改、修改了哪些文件、注意事项）\n\n   changelog_missing = true → 编辑 CHANGELOG.md 追加版本条目\n     （格式：## vX.Y.Z (YYYY-MM-DD-HHmm)，分类：Added/Changed/Fixed，链接到 docs/changes/）\n\n4. 以上记录写完后 → 先 Read memory/GIT_PUSH_RULE.md → 严格按文档的完整流程执行 git 提交+推送"
+            "type": "command",
+            "command": "python ${CODEBUDDY_SKILL_DIR}\\scripts\\check_changelog.py",
+            "timeout": 15000
           }
         ]
       }

@@ -3,9 +3,11 @@
 Stop Hook 检查脚本
 在每次任务结束时自动检测变更记录是否完整。
 
+输出到 stderr，exit code 2 会被注入到下一次 AI 对话。
+
 返回 exit code：
 - 0 = 检查通过，或没有需要检查的变更
-- 1 = 检查发现遗漏
+- 2 = 检查发现遗漏（stderr 注入到下次对话）
 """
 
 import os
@@ -103,7 +105,7 @@ def check():
     stdout, _, _ = git("status", "--porcelain")
     has_uncommitted = bool(stdout)
     if has_uncommitted:
-        issues.append("存在未提交的变更")
+        issues.append("存在未提交的变更，请按 memory/GIT_PUSH_RULE.md 流程提交+推送")
 
     _, _, push_rc = git("rev-parse", "origin/main")
     has_unpushed = False
@@ -115,16 +117,16 @@ def check():
             issues.append("存在未推送的 commit，请按 memory/GIT_PUSH_RULE.md 使用 GitHub MCP 工具推送")
 
     if issues:
-        print("=== 变更记录检查结果 ===")
-        print(f"需要处理：是")
-        print(f"已修改源文件：{'|'.join(source_list)}")
-        print(f"issues：{'|'.join(issues)}")
-        print(f"changes_missing：{str(changes_missing).lower()}")
-        print(f"changelog_missing：{str(changelog_missing).lower()}")
-        print(f"has_uncommitted：{str(has_uncommitted).lower()}")
-        print(f"has_unpushed：{str(has_unpushed).lower()}")
-        print("=======================")
-        return 1
+        print("=== 变更记录检查结果 ===", file=sys.stderr)
+        print(f"需要处理：是", file=sys.stderr)
+        print(f"已修改源文件：{'|'.join(source_list)}", file=sys.stderr)
+        print(f"issues：{'|'.join(issues)}", file=sys.stderr)
+        print(f"changes_missing：{str(changes_missing).lower()}", file=sys.stderr)
+        print(f"changelog_missing：{str(changelog_missing).lower()}", file=sys.stderr)
+        print(f"has_uncommitted：{str(has_uncommitted).lower()}", file=sys.stderr)
+        print(f"has_unpushed：{str(has_unpushed).lower()}", file=sys.stderr)
+        print("=======================", file=sys.stderr)
+        return 2
 
     return 0
 
