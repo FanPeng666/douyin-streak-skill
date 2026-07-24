@@ -49,6 +49,12 @@ const COOKIE_KEYS = [
   's_v_web_id',
 ];
 
+// ── URL 地址 ───────────────────────────────────
+
+const DOUYIN_URL = 'https://www.douyin.com/';
+const CHAT_URL = 'https://www.douyin.com/chat?isPopup=1';
+const PAGE_TITLE_CHECK = '抖音';
+
 // ── DOM 选择器 ────────────────────────────────
 
 const IM_ENTRY_SELECTOR = '[data-e2e="im-entry"]';
