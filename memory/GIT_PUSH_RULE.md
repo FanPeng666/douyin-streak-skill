@@ -149,11 +149,20 @@
 
 ## 本地同步（手动，由用户决定）
 
-当用户要求「同步到本地」时，执行以下命令：
+当用户要求「同步到本地」时，先用 `git fetch` 拉取远程信息，再让用户选择同步方式：
+
+**推荐方式（安全）：**
+```bash
+git fetch origin +refs/heads/main:refs/remotes/origin/main
+```
+仅更新本地的远程引用（`origin/main`），不碰工作区。后续用 `git log origin/main` 查看远程状态。
+
+**如果需要工作区同步（谨慎）：**
 ```bash
 git fetch origin +refs/heads/main:refs/remotes/origin/main
 git reset --hard origin/main
 ```
+⚠️ `reset --hard` 会覆盖工作区所有文件，包括未纳入 Git 的本地修改。仅在用户明确确认后执行。
 
 ## 注意事项
 
