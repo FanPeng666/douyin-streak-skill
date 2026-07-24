@@ -8,10 +8,13 @@
 
 ## 功能
 
-- 自动登录抖音网页版（Cookie 注入）
+- 直接导航到抖音独立私信页面（`chat?isPopup=1`），无需 IM 入口交互
 - 按好友名称列表匹配目标好友（**必传参数**，无默认值）
+- 搜索兜底：未在列表中匹配到的好友通过搜索框查找
 - 向每位好友发送消息维持火花（内容可自定义）
-- 发送后验证 + 异常重试 + 验证码检测
+- 发送后验证（仅限右侧聊天面板）+ 异常重试 + 验证码检测
+- 截图保存到 `screenshots/success/` 和 `screenshots/failure/`
+- 每发送一位好友后重载页面，彻底重置 React 状态
 - Stop Hook 自动检查变更记录完整性
 - Git 提交与远程推送规范
 
@@ -38,7 +41,9 @@
 │   ├── config.js              # 常量 + Prompt 参数解析
 │   ├── utils.js               # 通用工具函数
 │   ├── auto_streak.js         # Playwright 自动化入口
-│   └── check_changelog.py     # Stop Hook 检查脚本
+│   ├── check_changelog.py     # Stop Hook 检查脚本
+│   ├── sync_local.bat         # Git 同步脚本（双击执行）
+│   └── generate_push_json.js  # MCP push_files payload 生成器
 ```
 
 ## 技术栈

@@ -1,7 +1,7 @@
 ---
 name: douyin-streak
 description: 抖音好友火花自动续期，通过 Prompt 参数传入 Cookie / 好友名称 / 发送内容，每天向指定好友发送消息维持火花
-version: 2.1.0
+version: 2.2.0
 triggers:
   - 续火花
   - 抖音续火
@@ -12,7 +12,7 @@ triggers:
 
 ## 概述
 
-通过 Playwright 浏览器自动化，登录抖音网页版（www.douyin.com），在消息面板中按好友名称匹配目标用户，依次发送文本消息以维持火花。
+通过 Playwright 浏览器自动化，登录抖音网页版后直接导航到独立私信页面（`https://www.douyin.com/chat?isPopup=1`），按好友名称匹配目标用户，依次发送文本消息以维持火花。
 
 所有可变参数（Cookie、好友名称、发送内容）均通过用户 Prompt 输入传入，不写入文件。
 
@@ -27,7 +27,8 @@ triggers:
 2. WorkBuddy 读取 `prompts/自动续火花.md` 获取完整任务指令
 3. 从用户 Prompt 中解析参数（Cookie、好友名称、发送内容）
 4. 运行 `node scripts/auto_streak.js`，将解析后的参数传入
-5. 脚本输出发送报告（Markdown 表格格式）
+5. 脚本依次：登录 → 导航到私信页 → 匹配好友 → 逐个发送 → 截图保存 → 输出报告
+6. 报告含截图路径，失败时可用于排查
 
 ## Prompt 参数
 
@@ -66,6 +67,7 @@ sid_tt=xxx; sid_guard=xxx; ttwid=xxx; s_v_web_id=xxx
 | Cookie 通过 Prompt 参数传入 | Cookie 写入文件或日志 |
 | 所有文件可公开 | 提交 .env / credentials / reports/ |
 | 配置文件只记字段名和默认值 | 配置文件记 Cookie 值 |
+| 截图保存到 screenshots/ 用于调试 | 截图提交到 Git（通过 .gitignore 排除 *.png） |
 
 ## 文件结构
 
@@ -77,10 +79,16 @@ sid_tt=xxx; sid_guard=xxx; ttwid=xxx; s_v_web_id=xxx
 │   └── changes/                 ← 详细变更记录
 ├── prompts/
 │   └── 自动续火花.md              ← WorkBuddy 任务 Prompt
+├── screenshots/
+│   ├── success/                 ← 发送成功截图
+│   └── failure/                 ← 发送失败截图
 ├── scripts/
 │   ├── config.js                ← 常量 + Prompt 参数解析
 │   ├── utils.js                 ← 通用工具函数
-│   └── auto_streak.js           ← Playwright 自动化入口
+│   ├── auto_streak.js           ← Playwright 自动化入口
+│   ├── check_changelog.py       ← Stop Hook 检查脚本
+│   ├── sync_local.bat           ← Git 同步（双击执行）
+│   └── generate_push_json.js    ← MCP push_files payload 生成器
 ```
 
 ## 工作规范
@@ -98,5 +106,7 @@ sid_tt=xxx; sid_guard=xxx; ttwid=xxx; s_v_web_id=xxx
 - **minor**：新增功能或重要优化
 - **patch**：Bug 修复或小调整
 
-### 修改前需检查
-- `parseCookies` 等函数签名变更后，**必须全局搜索所有调用处**再提交
+### 推送规范
+- 仅使用 MCP push_files 推送远程（见 `memory/GIT_PUSH_RULE.md`）
+- 推送前可运行 `node scripts/generate_push_json.js "commit message"` 生成 payload
+- **不自动同步本地**，由用户按需触发
