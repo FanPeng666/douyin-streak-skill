@@ -615,17 +615,28 @@ async function main() {
 
 /** 关闭当前聊天，返回好友列表 */
 async function closeChat(page) {
+  // 方法 1: Escape 键（多数 Web 聊天支持）
   try {
-    const closeBtn = page.locator('[class*="close"], [class*="Close"], [data-e2e="chat-close"]').first();
-    if (await closeBtn.isVisible({ timeout: 2000 }).catch(() => false)) {
-      await closeBtn.click({ timeout: 2000 });
-      await sleep(config.CHAT_CLOSE_WAIT);
-      return;
-    }
+    await page.keyboard.press('Escape');
+    await sleep(1500);
   } catch (_) {}
+
+  // 方法 2: 点击 IM 面板右上角关闭区（约 1536, 28 附近）
   try {
-    await page.mouse.click(config.CLOSE_BUTTON_X_MIN + 100, 50);
+    await page.mouse.click(config.IM_ENTRY_X + 120, config.IM_ENTRY_Y);
     await sleep(config.CHAT_CLOSE_WAIT);
+  } catch (_) {}
+
+  // 方法 3: 切换 IM 入口按钮刷新面板
+  try {
+    const imEntry = page.locator(config.IM_ENTRY_SELECTOR);
+    if (await imEntry.isVisible({ timeout: 3000 }).catch(() => false)) {
+      await imEntry.click({ force: true, timeout: 2000 });
+      await sleep(2000);
+      // 重新打开面板
+      await imEntry.click({ force: true, timeout: 2000 });
+      await sleep(config.PANEL_OPEN_WAIT);
+    }
   } catch (_) {}
 }
 
