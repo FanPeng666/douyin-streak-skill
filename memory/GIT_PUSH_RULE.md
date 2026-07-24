@@ -1,262 +1,107 @@
 # Git 提交与远程推送规范
 
-请根据**当前工作目录**中已完成的修改，自动完成 Git 提交与远程仓库推送。
-
-整个过程应遵循行业通用的 Git 工作流，并尽可能减少对现有仓库的影响。
+AI 在完成项目文件修改后，按照以下流程操作。
 
 ---
 
-# 一、项目状态检查
+## 一、何时执行
 
-执行前请自动检查当前 Git 仓库状态。
-
-包括但不限于：
-- 当前是否为 Git 仓库
-- 当前所在分支
-- Remote 配置
-- 工作区状态
-- 暂存区状态
-- 是否存在未跟踪文件
-- 是否存在冲突
-- 是否存在未完成的 Merge、Rebase、Cherry-pick 等 Git 操作
-
-若当前目录不是 Git 仓库，请停止执行并说明原因。
+- **写代码/改配置/改文档后** → 执行 MCP 推送（推远程，不同步本地）
+- **用户说"同步到本地"** → 执行本地同步
+- **仅执行续火花（无文件修改）** → 跳过所有 Git 操作
 
 ---
 
-# 二、分析本次变更
+## 二、推送（MCP + 远程）
 
-请自动分析当前所有变更内容。
+### 步骤
 
-包括：
-- 新增文件
-- 修改文件
-- 删除文件
-- 重命名文件
-- 配置变更
-- 文档变更
-- 资源文件变更
+1. **生成 payload**：运行辅助脚本，输出完整的 MCP 调用参数：
+   ```bash
+   node scripts/generate_push_json.js "commit message"
+   ```
 
-要求：
-- 基于实际 Git Diff 分析
-- 不仅统计文件数量
-- 尽可能理解修改目的
-- 不虚构不存在的修改内容
+   脚本会自动读取所有项目文件，拼接成 `push_files` 所需的 JSON 格式。
 
----
+   如果不方便运行，手动组装参数：
+   - `owner`: `FanPeng666`
+   - `repo`: `douyin-streak-skill`
+   - `branch`: `main`
+   - `message`: Conventional Commits 格式
+   - `files`: 只传**有修改**的文件，每个元素 `{ path, content }`
 
-# 三、自动暂存
+2. **调用 MCP**：`DeferExecuteTool → mcp__github__push_files`
 
-请自动将本次需要提交的文件加入暂存区。
+3. **完成后**：输出推送的 SHA，**不碰本地 git**
 
-要求：
-- 自动识别应提交内容
-- 不提交无关文件
-- 不提交缓存文件
-- 不提交临时文件
-- 不提交日志文件
-- 不提交应被 `.gitignore` 忽略的文件
+### 禁止
 
-若存在异常文件，请在执行报告中说明。
+- ❌ `git push origin main`
+- ❌ `gh` CLI
+- ❌ Force Push
 
 ---
 
-# 四、生成 Commit Message
+## 三、本地同步（用户按需触发）
 
-请根据本次实际修改内容自动生成专业、规范的 Commit Message。
+仅当用户说出"同步到本地"或等效指令时执行。
 
-要求：
-- 基于真实修改内容生成
-- 简洁明确
-- 使用行业通用规范（Conventional Commits）
-
-优先使用：
-- feat / fix / docs / refactor / style / chore / build / ci / test / perf
-
-不要：
-- 使用无意义内容
-- 使用占位文本
-- 使用数字编号
-- 使用 "update"、"test"、"123" 等描述
-
-如修改涉及多个方面，请自动概括主要变更。
-
----
-
-# 五、创建 Commit
-
-使用生成的 Commit Message 创建 Commit。
-
-要求：
-- 若不存在可提交内容，则不要创建空 Commit
-- 保持 Git 历史整洁
-- 不修改已有 Commit
-- 不执行 Amend
-- 不重写历史
-
----
-
-# 六、同步远程仓库
-
-推送前请自动检查远程仓库状态。
-
-要求：
-- 自动检查远程仓库是否可访问
-- 自动获取远程最新状态
-- 判断是否存在新的远程提交
-
-> **注意**：MCP push_files 直接写入远程，不依赖本地 git 同步。
-> 本步骤仅适用于常规 git push 场景（本地终端中操作）。
-
----
-
-# 七、推送到远程仓库
-
-## 推送方式
-
-使用 **GitHub 官方 MCP 工具**（`mcp__github__push_files`）作为代码推送的唯一方式。
-
-**禁止**使用以下方式进行推送：
-- `git push origin main` 命令行推送（因 headless 沙箱无 TTY 交互认证）
-- `gh` CLI 推送（因当前环境未配置 gh 认证）
-- 其他第三方脚本或工具推送
-
-## 推送流程
-
-1. 自动识别默认 Remote
-2. 自动识别当前分支
-3. 不修改 Remote 配置
-4. 不修改默认分支
-5. 不执行 Force Push
-6. 不删除远程分支
-7. 不创建无关 Tag
-8. **不自动同步本地**（由用户按需触发）
-
-若首次推送需要建立上游分支，请自动完成关联。
-
-## MCP 推送操作步骤
-
-1. **获取文件内容**：使用 `Read` 工具读取所有需要推送的文件的最新内容
-
-2. **调用 MCP 推送**：使用 `DeferExecuteTool` 调用 `mcp__github__push_files`，传入以下参数：
-   - `owner`：`FanPeng666`
-   - `repo`：`douyin-streak-skill`
-   - `branch`：`main`
-   - `message`：符合 Conventional Commits 规范的 Commit Message
-   - `files`：数组，每个元素包含 `path`（文件路径）和 `content`（完整内容）
-
-3. **推送完成**：不需要同步本地。远程已更新，本地保持原样。
-
-## 本地同步（手动，由用户决定）
-
-当用户要求「同步到本地」时，默认执行完整同步（commit 记录 + 工作区文件）：
+### 方式 A：同步工作区（默认）
 
 ```bash
+cd /d C:\04_programme\Project\Skill_Project\douyin-streak-skill
 git fetch origin
 git reset --hard FETCH_HEAD
 ```
 
-> **说明**：MCP 推送后远程有新 commit，本地 git 历史落后。`reset --hard` 将本地 HEAD 和工作区同步到远程最新版本。使用 `FETCH_HEAD`（而非 `origin/main`）可绕过 ref 缓存问题。
+或双击 `scripts/sync_local.bat`（效果相同）。
 
-如果不希望覆盖工作区文件，可以仅更新远程引用：
+### 方式 B：仅更新引用
+
 ```bash
 git fetch origin
 ```
-仅更新远程引用，不碰工作区。
 
-## 辅助脚本
-
-放在 `scripts/` 目录中，可减少手动操作：
-
-| 脚本 | 用途 | 运行方式 |
-|------|------|---------|
-| `sync_local.bat` | 同步远程到本地（fetch + reset --hard） | 双击或终端执行 |
-| `generate_push_json.js` | 生成 MCP push_files payload JSON | `node scripts/generate_push_json.js "commit message"` |
-
-`generate_push_json.js` 会在终端输出完整的 MCP 调用参数，AI 可直接 copy 输出用于 `DeferExecuteTool`，跳过 Read 文件步骤。
-
-## 注意事项
-
-- `push_files` 会直接向 GitHub 远程仓库创建一个新的 Commit，不经过本地 Git 流程
-- 推送后本地与远程会不一致，这是正常状态
-- **本地同步由用户按需触发**，不自动执行
-- 文件内容中的特殊字符（如反斜杠、引号）需要正确转义
+不覆盖工作区文件，仅更新远程指针。
 
 ---
 
-# 八、执行规范
+## 四、Commit Message 规范
 
-整个执行过程请遵循以下原则：
+```
+类型(范围): 简短描述
 
-- 优先采用行业通用最佳实践
-- 不破坏现有 Git 历史
-- 不覆盖他人提交
-- 不执行危险 Git 操作
-- 不修改无关文件
-- 尽可能减少额外 Commit
-- 保持 Git 历史清晰、规范
-- 保持提交内容真实准确
+- 具体改动 1
+- 具体改动 2
+```
 
----
-
-# 九、幂等性要求
-
-整个任务应支持重复执行。
-
-再次执行时：
-- 不重复创建相同 Commit
-- 不重复 Push
-- 若无新的修改，应直接说明当前仓库已是最新状态
-- 保持 Git 历史整洁
+| 类型 | 场景 |
+|------|------|
+| `feat` | 新功能 |
+| `fix` | 修复 bug |
+| `refactor` | 重构代码 |
+| `docs` | 文档更新 |
+| `chore` | 配置、工具、依赖 |
 
 ---
 
-# 十、完成后验证
+## 五、验证清单
 
-全部任务完成后，请自动确认：
+推送后检查：
 
-- Git 工作区是否干净
-- 暂存区是否为空
-- Commit 是否创建成功
-- Push 是否成功
-- 本地与远程无需同步（除非用户要求）
-- 是否仍存在未提交修改
-- 是否仍存在未推送 Commit
-- 是否存在异常状态
+- [ ] `DeferExecuteTool` 返回了 SHA → 推送成功
+- [ ] 文件内容中的引号/反斜杠已正确转义
+- [ ] 没有 .gitignore 中的文件被推入
+- [ ] 没动本地 git
 
-最后输出一份简洁、清晰的执行结果与验证报告。
+同步后检查：
 
----
-
-# 十一、异常处理
-
-若执行过程中出现异常，请遵循以下原则：
-
-- 不进行猜测性操作
-- 不执行具有破坏性的 Git 命令
-- 不执行 Force Push
-- 不覆盖远程历史
-- 保留当前修改
-- 保留当前 Commit
-- 明确说明失败原因
-- 给出建议的解决方案
-- 尽可能完成其他可执行任务
+- [ ] `git log --oneline -3` 显示最新提交
+- [ ] `git status --short` 工作区干净
 
 ---
 
-# 十二、执行目标
-
-完成后应满足以下状态：
-
-- 当前修改已规范提交
-- 当前分支已成功推送至远程
-- 本地与远程无需同步
-- Git 工作区保持干净
-- Git 历史规范、清晰、可维护
-
----
-
-# 远程仓库地址
+## 六、远程仓库
 
 ```
 https://github.com/FanPeng666/douyin-streak-skill
