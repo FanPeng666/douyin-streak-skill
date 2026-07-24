@@ -108,18 +108,14 @@ async function takeScreenshot(page, subdir, name) {
 async function getLastMessageText(page) {
   try {
     return await page.evaluate(() => {
-      // 只看右侧聊天面板：left >= 500（避开左侧好友列表）
-      // 找到所有可能是消息的元素
       const allEls = Array.from(document.querySelectorAll('[class*="message"], [class*="Message"], [class*="chat-msg"], [class*="DraftEditor"], [class*="bubble"]'));
       const rightEls = allEls.filter((el) => {
         const r = el.getBoundingClientRect();
         return r.left >= 500 && r.width > 20 && r.height > 10;
       });
       if (rightEls.length === 0) return '';
-      // 取最后一个（按 y 位置最靠下的）
       rightEls.sort((a, b) => b.getBoundingClientRect().top - a.getBoundingClientRect().top);
       const last = rightEls[0];
-      // 取文字
       const text = (last.innerText || last.textContent || '').trim();
       return text;
     });
@@ -202,7 +198,6 @@ async function main() {
 
     const matchedFriends = await page.evaluate((friendNames) => {
       const results = [];
-      // 存储候选文本的位置（去重后的好友名）
       const candidates = [];
       const walker = document.createTreeWalker(document.body, NodeFilter.SHOW_TEXT, null, false);
       let node;
@@ -216,9 +211,8 @@ async function main() {
         const excludes = ['互动消息', '全部消息', '私信', '去设置', '下载', '下载客户端',
           '消息', '通知', '赞了你的作品', '赞了你的评论', '关注了你', '等', '回关',
           '推荐了你的视频', '直播中', '重燃中', '在线', '分钟前在线', '小时前在线',
-          '开启读屏标签', '读屏标签已关闭', '是否保存登录信息'];
+          '开启读屏标签', '读屏标签已关闭', '是���保存登录信息'];
         if (excludes.some((e) => text === e || text.startsWith(e))) continue;
-        // 向上找行容器（宽度 > 150 的父元素）
         let row = parent;
         for (let i = 0; i < 5; i++) {
           if (!row) break;
@@ -237,7 +231,6 @@ async function main() {
         }
       }
 
-      // 按 y 去重（同一行只保留一个）
       candidates.sort((a, b) => a.y - b.y);
       const deduped = [];
       let lastY = 0;
@@ -266,23 +259,118 @@ async function main() {
       console.log(`    ✓ ${f.name} (${Math.round(f.x)}, ${Math.round(f.y)})`);
     }
     const matchedNames = new Set(matchedFriends.map((f) => f.name));
-    for (const name of FRIEND_NAMES) {
-      if (!matchedNames.has(name)) {
-        console.log(`    ✗ ${name} — 未找到`);
-        results.push({ name, message: MESSAGE_TEXT, verified: false, duration: '0s', status: '❌ 未找到' });
+    const unfoundNames = FRIEND_NAMES.filter((n) => !matchedNames.has(n));
+    if (unfoundNames.length > 0) {
+      console.log(`  搜索未找到的好友: ${unfoundNames.join(', ')}`);
+      const searchBoxPos = await page.evaluate(() => {
+        const inputs = document.querySelectorAll('input');
+        for (const inp of inputs) {
+          const r = inp.getBoundingClientRect();
+          if (r.width > 100 && r.left < 400 && r.top < 100) {
+            return { x: Math.round(r.left + r.width / 2), y: Math.round(r.top + r.height / 2) };
+          }
+        }
+        return null;
+      });
+
+      if (searchBoxPos) {
+        for (const name of unfoundNames) {
+          await page.mouse.click(searchBoxPos.x, searchBoxPos.y);
+          await sleep(500);
+          await page.keyboard.press('Control+a');
+          await page.keyboard.press('Backspace');
+          await sleep(300);
+          await page.keyboard.type(name, { delay: 80 });
+          await sleep(2000);
+
+          const found = await page.evaluate((targetName) => {
+            const walker = document.createTreeWalker(document.body, NodeFilter.SHOW_TEXT, null, false);
+            let node;
+            while ((node = walker.nextNode())) {
+              const text = node.textContent.trim();
+              if (text !== targetName) continue;
+              const parent = node.parentElement;
+              if (!parent) continue;
+              const rect = parent.getBoundingClientRect();
+              if (rect.top < 60 || rect.width === 0) continue;
+              let row = parent;
+              for (let i = 0; i < 6; i++) {
+                if (!row) break;
+                const r = row.getBoundingClientRect();
+                if (r.width > 200 && r.height > 40) {
+                  return { x: Math.round(r.left + r.width / 2), y: Math.round(r.top + r.height / 2) };
+                }
+                row = row.parentElement;
+              }
+              return { x: Math.round(rect.left + rect.width / 2), y: Math.round(rect.top + rect.height / 2) };
+            }
+            return null;
+          }, name);
+
+          if (found) {
+            matchedFriends.push({ name, x: found.x, y: found.y, index: matchedFriends.length });
+            matchedNames.add(name);
+            console.log(`    🔍 通过搜索找到 ${name} (${found.x}, ${found.y})`);
+          } else {
+            console.log(`    ✗ ${name} — 搜索也未找到`);
+            results.push({ name, message: MESSAGE_TEXT, verified: false, duration: '0s', status: '❌ 搜索未找到' });
+          }
+        }
+
+        try {
+          await page.mouse.click(searchBoxPos.x, searchBoxPos.y);
+          await sleep(500);
+          await page.keyboard.press('Control+a');
+          await page.keyboard.press('Backspace');
+          await sleep(1000);
+        } catch (_) {}
       }
     }
 
     // ── 第 5 步：逐个发送消息 ──
     console.log('[5/6] 逐个发送消息...');
 
+    async function findFriendCoord(page, targetName) {
+      return await page.evaluate((name) => {
+        const walker = document.createTreeWalker(document.body, NodeFilter.SHOW_TEXT, null, false);
+        let node;
+        while ((node = walker.nextNode())) {
+          const text = node.textContent.trim();
+          if (text !== name) continue;
+          const parent = node.parentElement;
+          if (!parent) continue;
+          const rect = parent.getBoundingClientRect();
+          if (rect.left < 50 || rect.top < 60 || rect.width < 20) continue;
+          let row = parent;
+          for (let i = 0; i < 5; i++) {
+            if (!row) break;
+            const r = row.getBoundingClientRect();
+            if (r.width > 150 && r.height > 40) {
+              return { x: Math.round(r.left + r.width / 2), y: Math.round(r.top + r.height / 2) };
+            }
+            row = row.parentElement;
+          }
+        }
+        return null;
+      }, targetName);
+    }
+
     for (const friend of matchedFriends) {
       const friendStart = Date.now();
       console.log(`  → 处理好友: ${friend.name}`);
 
       try {
-        // 点击好友（坐标点击，在私信页面直接可行）
-        await page.mouse.click(friend.x, friend.y);
+        // 每次都用最新坐标点击好友（上一轮结束时已重新加载页面）
+        const freshCoord = await findFriendCoord(page, friend.name);
+        if (!freshCoord) {
+          console.log(`    ✗ ${friend.name} — 重新查找���标失败`);
+          await takeScreenshot(page, 'failure', `${fmtLogTime()}-${friend.name}-坐标失败`);
+          results.push({ name: friend.name, message: MESSAGE_TEXT, verified: false, duration: '0s', status: '❌ 坐标查找失败' });
+          continue;
+        }
+
+        // 点击好友（最新坐标）
+        await page.mouse.click(freshCoord.x, freshCoord.y);
         await sleep(config.FRIEND_CLICK_WAIT);
 
         // 验证聊天头部是否已切换到目标好友
@@ -293,7 +381,6 @@ async function main() {
             const parent = node.parentElement;
             if (!parent) continue;
             const rect = parent.getBoundingClientRect();
-            // 聊天头部在 top 0-60，left >= 300（右侧聊天区顶部）
             if (rect.top >= 0 && rect.top <= 60 && rect.left >= 300 && rect.width > 10) {
               const text = (node.textContent || '').trim();
               if (text === targetName || text.startsWith(targetName + ' ')) return true;
@@ -304,7 +391,7 @@ async function main() {
 
         if (!chatOpened) {
           console.log('    聊天头部未切换，重试点击...');
-          await page.mouse.click(friend.x, friend.y);
+          await page.mouse.click(freshCoord.x, freshCoord.y);
           await sleep(config.FRIEND_CLICK_WAIT);
           chatOpened = await page.evaluate((targetName) => {
             const walker = document.createTreeWalker(document.body, NodeFilter.SHOW_TEXT, null, false);
@@ -323,32 +410,14 @@ async function main() {
         }
 
         if (!chatOpened) {
-          // 尝试 locator 点击兜底
-          const friendLocator = page.locator(`text="${friend.name}"`).first();
-          try {
-            const box = await friendLocator.boundingBox({ timeout: 2000 });
-            if (box && box.x > 200) {
-              await friendLocator.click({ force: true, timeout: 3000 });
-              await sleep(config.FRIEND_CLICK_WAIT);
-              chatOpened = await page.evaluate(() => {
-                const el = document.querySelector('[contenteditable="true"]');
-                return el && el.offsetParent !== null;
-              });
-            }
-          } catch (_) {}
-        }
-
-        if (!chatOpened) {
           console.log(`    ✗ ${friend.name} — 聊天未打开`);
           await takeScreenshot(page, 'failure', `${fmtLogTime()}-${friend.name}-聊天未打开`);
-          results.push({ name: friend.name, message: MESSAGE_TEXT, verified: false, duration: '0s', status: '❌ ���天未打开' });
+          results.push({ name: friend.name, message: MESSAGE_TEXT, verified: false, duration: '0s', status: '❌ 聊天未打开' });
           continue;
         }
 
-        // 关闭弹窗
         await dismissLoginSavePopup(page);
 
-        // 定位输入框
         let inputBox = page.locator('[contenteditable="true"]').first();
         try {
           const box = await inputBox.boundingBox({ timeout: 3000 });
@@ -367,7 +436,6 @@ async function main() {
           continue;
         }
 
-        // 点击输入框
         const inpBox = await inputBox.boundingBox();
         if (inpBox) {
           await page.mouse.click(inpBox.x + inpBox.width / 2, inpBox.y + inpBox.height / 2);
@@ -376,7 +444,6 @@ async function main() {
         }
         await sleep(config.INPUT_FOCUS_WAIT);
 
-        // 打字并发送
         let sendOk = false;
         for (let attempt = 0; attempt < config.SEND_MAX_RETRIES; attempt++) {
           if (attempt > 0) console.log(`    重试发送 (${attempt + 1}/${config.SEND_MAX_RETRIES})...`);
@@ -391,7 +458,6 @@ async function main() {
           await page.keyboard.type(MESSAGE_TEXT, { delay: config.TYPE_DELAY });
           await sleep(config.POST_TYPE_WAIT);
 
-          // 发送
           let sent = false;
           try {
             await page.keyboard.press('Enter');
@@ -413,14 +479,13 @@ async function main() {
                 await page.mouse.click(sbBox.x + sbBox.width / 2, sbBox.y + sbBox.height / 2);
                 await sleep(2500);
                 sent = true;
-                console.log('    [send] ���点击发送按钮');
+                console.log('    [send] 已点击发送按钮');
               }
             } catch (_) {}
           }
 
           await sleep(config.POST_SEND_WAIT);
 
-          // 验证：取聊天面板最后一条消息 + 检查整个面板
           const afterText = await getLastMessageText(page);
           if (afterText === MESSAGE_TEXT || afterText.includes(MESSAGE_TEXT)) { sendOk = true; break; }
           const chatHasMsg = await chatPanelContains(page, MESSAGE_TEXT);
@@ -440,9 +505,12 @@ async function main() {
           results.push({ name: friend.name, message: MESSAGE_TEXT, verified: false, duration, status: '❌ 验证失败' });
         }
 
-        // 好友间间隔：先 Escape 退出聊天焦点，再等待
-        try { await page.keyboard.press('Escape'); await sleep(1500); } catch (_) {}
-        await sleep(config.FRIEND_INTERVAL);
+        // 好友间：重新导航到私信页，完全重置页面状态
+        if (matchedFriends.indexOf(friend) < matchedFriends.length - 1) {
+          await page.goto(config.CHAT_URL, { waitUntil: 'domcontentloaded', timeout: 30000 });
+          await sleep(4000);
+          await dismissLoginSavePopup(page);
+        }
       } catch (err) {
         const duration = ((Date.now() - friendStart) / 1000).toFixed(0) + 's';
         console.log(`    ✗ ${friend.name} — 异常: ${err.message}`);
@@ -453,7 +521,6 @@ async function main() {
       }
     }
 
-    // ── 第 6 步：生成报告 ──
     console.log('[6/6] 生成报告...');
     await browser.close();
 
