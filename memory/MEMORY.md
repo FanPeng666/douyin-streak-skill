@@ -40,5 +40,5 @@
 ## GitHub 推送
 统一使用 MCP push_files，不自动同步本地。详见 `memory/GIT_PUSH_RULE.md`。
 辅助脚本：
-- `scripts/sync_local.bat` — 双击同步
-- `scripts/generate_push_json.js` — 生成 MCP push payload
+- `scripts/sync_local.bat` — AI 调用执行 git fetch + reset（用户要求同步时）
+- `scripts/generate_push_json.js` — AI 生成 MCP push payload

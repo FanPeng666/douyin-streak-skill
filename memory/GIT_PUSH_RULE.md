@@ -48,13 +48,18 @@ AI 在完成项目文件修改后，按照以下流程操作。
 
 ### 方式 A：同步工作区（默认）
 
+AI 调用 Bash 执行：
 ```bash
 cd /d C:\04_programme\Project\Skill_Project\douyin-streak-skill
 git fetch origin
 git reset --hard FETCH_HEAD
 ```
 
-或双击 `scripts/sync_local.bat`（效果相同）。
+或直接运行辅助脚本：
+```bash
+cd /d C:\04_programme\Project\Skill_Project\douyin-streak-skill
+scripts/sync_local.bat
+```
 
 ### 方式 B：仅更新引用
 
