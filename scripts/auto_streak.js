@@ -211,7 +211,7 @@ async function main() {
         const excludes = ['互动消息', '全部消息', '私信', '去设置', '下载', '下载客户端',
           '消息', '通知', '赞了你的作品', '赞了你的评论', '关注了你', '等', '回关',
           '推荐了你的视频', '直播中', '重燃中', '在线', '分钟前在线', '小时前在线',
-          '开启读屏标签', '读屏标签已关闭', '是���保存登录信息'];
+          '开启读屏标签', '读屏标签已关闭', '是否保存登录信息'];
         if (excludes.some((e) => text === e || text.startsWith(e))) continue;
         let row = parent;
         for (let i = 0; i < 5; i++) {
@@ -361,9 +361,17 @@ async function main() {
 
       try {
         // 每次都用最新坐标点击好友（上一轮结束时已重新加载页面）
-        const freshCoord = await findFriendCoord(page, friend.name);
+        let freshCoord = await findFriendCoord(page, friend.name);
         if (!freshCoord) {
-          console.log(`    ✗ ${friend.name} — 重新查找���标失败`);
+          for (let retry = 1; retry <= 3; retry++) {
+            console.log(`    等待好友加载，重试找坐标 (${retry}/3)...`);
+            await sleep(2000);
+            freshCoord = await findFriendCoord(page, friend.name);
+            if (freshCoord) break;
+          }
+        }
+        if (!freshCoord) {
+          console.log(`    ✗ ${friend.name} — 重新查找坐标失败`);
           await takeScreenshot(page, 'failure', `${fmtLogTime()}-${friend.name}-坐标失败`);
           results.push({ name: friend.name, message: MESSAGE_TEXT, verified: false, duration: '0s', status: '❌ 坐标查找失败' });
           continue;
@@ -505,7 +513,7 @@ async function main() {
           results.push({ name: friend.name, message: MESSAGE_TEXT, verified: false, duration, status: '❌ 验证失败' });
         }
 
-        // 好友间：重新导航到私信页，完全重置页面状态
+        // 好友间：重���导航到私信页，完全重置页面状态
         if (matchedFriends.indexOf(friend) < matchedFriends.length - 1) {
           await page.goto(config.CHAT_URL, { waitUntil: 'domcontentloaded', timeout: 30000 });
           await sleep(4000);
