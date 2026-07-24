@@ -92,6 +92,14 @@ def check():
         changelog_missing = True
         issues.append("CHANGELOG.md 不存在")
 
+    # 检查代码/配置有修改但 README.md 未同步更新
+    code_files = {"scripts/auto_streak.js", "scripts/config.js", "scripts/utils.js", "SKILL.md", ".workbuddy/settings.json"}
+    modified_set = set(source_list)
+    code_changed = bool(code_files & modified_set)
+    readme_changed = "README.md" in modified_set
+    if code_changed and not readme_changed:
+        issues.append("代码/配置有修改，请检查 README.md 是否需要同步更新")
+
     stdout, _, _ = git("status", "--porcelain")
     has_uncommitted = bool(stdout)
     if has_uncommitted:

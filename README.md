@@ -9,9 +9,11 @@
 ## 功能
 
 - 自动登录抖音网页版（Cookie 注入）
-- 按好友名称列表匹配目标好友（可通过 Prompt 参数自定义）
+- 按好友名称列表匹配目标好友（**必传参数**，无默认值）
 - 向每位好友发送消息维持火花（内容可自定义）
 - 发送后验证 + 异常重试 + 验证码检测
+- Stop Hook 自动检查变更记录完整性
+- Git 提交与远程推送规范
 
 ## 目录结构
 
@@ -20,8 +22,11 @@
 ├── CHANGELOG.md               # 版本概要索引
 ├── README.md
 ├── SKILL.md                   # WorkBuddy Skill 元数据
+├── .workbuddy/
+│   └── settings.json          # Stop Hook 配置（agent 类型）
 ├── memory/
-│   └── MEMORY.md              # 项目记忆与工作约定
+│   ├── MEMORY.md              # 项目记忆与工作约定
+│   └── GIT_PUSH_RULE.md       # Git 提交与推送规范
 ├── docs/
 │   └── changes/               # 详细变更记录（YYYY-MM-DD-HHmm.md）
 ├── prompts/
@@ -29,24 +34,27 @@
 ├── scripts/
 │   ├── config.js              # 常量 + Prompt 参数解析
 │   ├── utils.js               # 通用工具函数
-│   └── auto_streak.js         # Playwright 自动化入口
+│   ├── auto_streak.js         # Playwright 自动化入口
+│   └── check_changelog.py     # Stop Hook 检查脚本
 ```
 
 ## 技术栈
 
 | 组件 | 用途 |
 |------|------|
-| Node.js 22 | ��本运行环境 |
+| Node.js 22 | 脚本运行环境 |
+| Python 3.13 | Stop Hook 检查脚本 |
 | Playwright | 浏览器自动化（Cookie 注入、DOM 操作、消息发送） |
 | Headless Chromium | 无头浏览器执行 |
+| GitHub MCP | 代码推送（push_files） |
 
 ## 架构设计
 
 ```
 用户 Prompt 输入
   Cookie：xxx
-  好友名称：火豹v    ← 必传
-  发送内容：🔥       ← （可选，默认 🔥）
+  好友名称：张三、李四    ← 必传
+  发送内容：🔥            ← （可选，默认 🔥）
         │
         ▼
   parsePromptArgs(promptText)
@@ -56,7 +64,12 @@
   Playwright → Chromium → 抖音网页版 → 发送消息
         │
         ▼
-  输出报告
+  输出报告 → Stop Hook 触发
+               │
+               ▼
+        check_changelog.py 检查
+           ├─ 变更记录完整 → 安静退出
+           └─ 发现遗漏 → agent 子代理自动补写 + 推送
 ```
 
 所有参数通过 Prompt 传入，不落地文件。
