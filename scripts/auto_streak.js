@@ -440,7 +440,8 @@ async function main() {
           results.push({ name: friend.name, message: MESSAGE_TEXT, verified: false, duration, status: '❌ 验证失败' });
         }
 
-        // 好友间间隔
+        // 好友间间隔：先 Escape 退出聊天焦点，再等待
+        try { await page.keyboard.press('Escape'); await sleep(1500); } catch (_) {}
         await sleep(config.FRIEND_INTERVAL);
       } catch (err) {
         const duration = ((Date.now() - friendStart) / 1000).toFixed(0) + 's';
@@ -448,6 +449,7 @@ async function main() {
         await takeScreenshot(page, 'failure', `${fmtLogTime()}-${friend.name}-异常`).catch(() => {});
         results.push({ name: friend.name, message: MESSAGE_TEXT, verified: false, duration, status: `❌ ${err.message.substring(0, 20)}` });
         await sleep(2000);
+        try { await page.keyboard.press('Escape'); await sleep(1500); } catch (_) {}
       }
     }
 
